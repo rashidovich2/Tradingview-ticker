@@ -3,7 +3,7 @@ from datetime import datetime
 
 def createRandomToken(length=12):
     chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-    return ''.join(random.choice(chars) for i in range(length))
+    return ''.join(random.choice(chars) for _ in range(length))
 
 def getEpoch():
     return int(time.time())
@@ -55,7 +55,10 @@ class ticker:
     def insertData(self, volume, price, ticker):
         if self.save:
             if self.split_symbols:
-                self.db.execute("INSERT INTO '"+ticker+"' VALUES (?, ?, ?)", (volume, price, getEpoch()))
+                self.db.execute(
+                    f"INSERT INTO '{ticker}' VALUES (?, ?, ?)",
+                    (volume, price, getEpoch()),
+                )
             else:
                 self.db.execute("INSERT INTO ticker_data VALUES (?, ?, ?, ?)", (volume, price, ticker, getEpoch()))
             self.db.commit()
@@ -83,16 +86,15 @@ class ticker:
         for message in messages:
             if '{' in message or '[' in message:
                 messagesObj.append(json.loads(message))
-            else:
-                if '~h~' in message:
-                    await self.connection.send("~m~{}~m~{}".format(len(message), message))
+            elif '~h~' in message:
+                await self.connection.send(f"~m~{len(message)}~m~{message}")
 
         return messagesObj
 
     # Convert object to message string
     def createMessage(self, name, params):
         message = json.dumps({'m': name, 'p': params})
-        return "~m~{}~m~{}".format(len(message), message)
+        return f"~m~{len(message)}~m~{message}"
 
     # Send message
     async def sendMessage(self, name, params):
@@ -101,12 +103,12 @@ class ticker:
 
     # Send authentication messages and subscribe to price & bars
     async def authenticate(self):
-        self.cs = 'cs_' + createRandomToken()
+        self.cs = f'cs_{createRandomToken()}'
 
         await self.sendMessage("set_auth_token", ["unauthorized_user_token"])
         await self.sendMessage("chart_create_session", [self.cs, ""])
         for symbol in self.symbols:
-            qs = 'qs_' + createRandomToken()
+            qs = f'qs_{createRandomToken()}'
             await self.sendMessage("quote_create_session", [qs])
             await self.sendMessage("quote_set_fields", [qs, "ch","chp","current_session","description","local_description","language","exchange","fractional","is_tradable","lp","lp_time","minmov","minmove2","original_name","pricescale","pro_name","short_name","type","update_mode","volume","currency_code","rchp","rtc"])
             await self.sendMessage("quote_add_symbols",[qs, symbol, {"flags":['force_permission']}])
@@ -152,7 +154,9 @@ class ticker:
     async def giveAnUpdate(self):
         while True:
             await asyncio.sleep(5)
-            print("{}: Watching {} tickers → received {} updates".format(datetime.now().strftime("%d/%m/%Y %H:%M:%S"), len(self.symbols), self.saves))
+            print(
+                f'{datetime.now().strftime("%d/%m/%Y %H:%M:%S")}: Watching {len(self.symbols)} tickers → received {self.saves} updates'
+            )
             self.saves = 0
 
     # start ticker in new thread
